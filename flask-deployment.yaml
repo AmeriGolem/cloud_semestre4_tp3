@@ -1,0 +1,66 @@
+# fichier: flask-deployment.yaml
+# Ce fichier cree deux ressources Kubernetes : un Deployment et un Service.
+apiVersion: apps/v1
+kind: Deployment # Un Deployment gere un ensemble de pods identiques
+metadata:
+  name: flask-api # Nom du Deployment (reference par ce nom)
+  labels:
+    app: flask-api # Label pour identifier cette application
+spec:
+  replicas: 3 # Nombre de copies (pods) au depart
+  selector:
+    matchLabels:
+      app: flask-api # Le Deployment gere les pods ayant ce label
+  strategy:
+    type: RollingUpdate # Strategie de mise a jour progressive
+    rollingUpdate:
+      maxUnavailable: 1 # Max 1 pod indisponible pendant la mise a jour
+      maxSurge: 1 # Max 1 pod supplementaire pendant la mise a jour
+  template:
+    metadata:
+      labels:
+        app: flask-api # Chaque pod cree aura ce label
+    spec:
+      containers:
+      - name: flask-api
+        image: nginx:alpine # Serveur web leger comme application de test
+        ports:
+        - containerPort: 80 # Le conteneur ecoute sur le port 80 (HTTP)
+        env:
+        - name: POD_NAME # Variable contenant le nom du pod
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name # Kubernetes injecte le nom du pod
+        lifecycle:
+          postStart: # Hook execute apres le demarrage du conteneur
+            exec:
+              command: ["/bin/sh", "-c",
+                "echo Hello depuis le pod $POD_NAME > /usr/share/nginx/html/index.html"]
+        # Ecrit un message personnalise avec le nom du pod
+        resources:
+          requests: # Ressources minimum demandees
+            cpu: "100m" # 100 millicores = 10% d'un coeur CPU
+            memory: "64Mi" # 64 megaoctets de memoire
+          limits: # Ressources maximum autorisees
+            cpu: "250m" # 250 millicores = 25% d'un coeur CPU
+            memory: "128Mi" # 128 megaoctets de memoire
+        volumeMounts:
+          - name: html
+            mountPath: /usr/share/nginx/html # Volume pour la page HTML
+      volumes:
+        - name: html
+          emptyDir: {} # Volume temporaire vide, partage dans le pod
+
+
+---
+apiVersion: v1
+kind: Service # Expose les pods sur le reseau interne
+metadata:
+  name: flask-api-service # Nom du Service (= adresse DNS interne)
+spec:
+  selector:
+    app: flask-api # Redirige vers les pods ayant ce label
+  ports:
+  - port: 80 # Port expose par le Service
+    targetPort: 80 # Port du conteneur cible
+  type: ClusterIP # Accessible uniquement depuis le cluster

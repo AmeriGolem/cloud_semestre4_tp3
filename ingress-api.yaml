@@ -1,0 +1,21 @@
+# fichier: ingress-api.yaml# Cette ressource Ingress definit les regles de routage HTTP.
+apiVersion: networking.k8s.io/v1
+kind: Ingress                          # Configure le routage HTTP
+metadata:  
+  name: flask-api-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /    
+    # Reecrit l'URL : /api/xxx devient /xxx avant envoi au Service
+spec:  
+  ingressClassName: nginx              # Utilise le controller NGINX
+  rules:  
+  - host: monapp.local                 # Nom de domaine declencheur
+    http:
+      paths:
+      - path: /api                     # Quand l'URL commence par /api...
+        pathType: Prefix               # ... (tout ce qui commence par /api)
+        backend:  
+          service:
+            name: flask-api-service    # ... redirige vers ce Service
+            port:
+              number: 80               # ... sur le port 80
